@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 import requests
+import tqdm
 
 DEBIAN_CLOUD_IMAGE_URL = "https://cdimage.debian.org/images/cloud"
 
@@ -42,14 +43,21 @@ class DebianCloudImage:
 
     def download_image(self, folder_out: Path) -> Path:
         image_path = folder_out / self.get_image_name()
-
         url = self.get_image_url()
         response = requests.get(url, stream=True)
         
         if response.status_code == 200:
+            total_size = int(response.headers.get('content-length', 0))
             with image_path.open('wb+') as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
+                with tqdm.tqdm(
+                    total=total_size,
+                    unit='B',
+                    unit_scale=True,
+                    desc=f"Downloading {self.get_image_name()}",
+                ) as progress_bar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        file.write(chunk)
+                        progress_bar.update(len(chunk))
             return image_path
         else:
             raise Exception(f"Failed to download image from {url}. Status code: {response.status_code}")
