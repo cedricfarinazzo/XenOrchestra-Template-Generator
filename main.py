@@ -45,22 +45,64 @@ async def main():
     file_format = image_path.suffix[1:]
     print(f"Image format: {file_format}")
 
-    upload_file_name = f"{image_path.stem}.{time.time()}.{file_format}"
+    build_id = int(time.time())
+    upload_file_name = f"{image_path.stem}.{build_id}.{file_format}"
     print(f"Upload file name: {upload_file_name}")
 
     # Get the size of the image using pathlib
     image_size = image_path.stat().st_size
     print(f"Image size: {image_size} bytes")
 
-    d = api.import_disk(
+    vdi_id = api.import_disk(
         sr_id=sr_id,
         file_path=image_path,
         upload_name=upload_file_name,
     )
-    print(d)
+    print(f"VDI ID: {vdi_id}")
+
+    default_debian12_template_id = await api.get_template_by_name("Debian Bookworm 12")
+    print(f"Template ID: {default_debian12_template_id}")
+
+    eth1_network_id = await api.get_network_by_name("Pool-wide network associated with eth1")
+    print(f"Network ID: {eth1_network_id}")
 
     print()
     print()
+
+    vm_id = await api.create_vm(
+        name_label=f"template.{image_path.stem}.{build_id}",
+        name_description=f"Debian 12 GenericCloud amd64 {build_id} template",
+        template_id=default_debian12_template_id,
+        network_id=eth1_network_id,
+        cpus=1,
+        memory=1,
+        tags=[f"template.{image_path.stem}"]
+    )
+    print(f"VM ID: {vm_id}")
+
+    print()
+    print("Attaching VDI to VM...")
+    attach_disk_response = await api.attack_vdi_to_vm(
+        vm_id=vm_id,
+        vdi_id=vdi_id,
+    )
+    print(f"VDI attached to VM: {attach_disk_response}")
+
+    print()
+    print("Set boot order...")
+    boot_order_response = await api.set_boot_order(
+        vm_id=vm_id,
+        boot_order="cd",
+    )
+    print(f"Boot order set: {boot_order_response}")
+
+    print()
+
+    print("Converting VM to template...")
+    convert_response = await api.convert_vm_to_template(
+        vm_id=vm_id,
+    )
+    print(f"VM converted to template: {convert_response}")
 
     await api.disconnect()
     print("Disconnected.")
