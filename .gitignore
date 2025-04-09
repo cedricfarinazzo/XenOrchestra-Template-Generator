@@ -5,3 +5,5 @@ __pycache__/
 venv
 env
 .xoa
+data.json
+schema.json

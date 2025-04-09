@@ -11,12 +11,12 @@ class DebianCloudImage:
         version: str,
         arch: str = "amd64",
         variant: str = "genericcloud"
-    ):
+    ) -> None:
         self.version = version
         self.arch = arch
         self.variant = variant
     
-    def get_version_name(self):
+    def get_version_name(self) -> str:
         match self.version:
             case "12":
                 return "bookworm"
@@ -33,10 +33,10 @@ class DebianCloudImage:
             case _:
                 raise ValueError(f"Unsupported Debian version: {self.version}")
 
-    def get_image_name(self):
+    def get_image_name(self) -> str:
         return f"debian-{self.version}-{self.variant}-{self.arch}.qcow2"
     
-    def get_image_url(self):
+    def get_image_url(self) -> str:
         version_name = self.get_version_name()
         image_name = self.get_image_name()
         return f"{DEBIAN_CLOUD_IMAGE_URL}/{version_name}/latest/{image_name}"
