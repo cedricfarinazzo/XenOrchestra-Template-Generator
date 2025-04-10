@@ -244,3 +244,19 @@ class XenOrchestraApi:
         return await self.ws.vm.convertToTemplate(
             id=vm_id,
         )
+        
+    async def delete_template(
+        self,
+        template_id: str,
+    ) -> bool:
+        """Delete a template.
+        
+        Args:
+            template_id: The ID of the template to delete
+            
+        Returns:
+            bool: True if successful, raises an exception otherwise
+        """
+        return await self.ws.vm.delete(
+            id=template_id,
+        )

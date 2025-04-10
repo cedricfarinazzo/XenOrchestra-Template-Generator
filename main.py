@@ -99,6 +99,9 @@ class TemplateGenerator:
             await self._convert_to_template(vm_id)
             
             logger.info(f"Template '{target_config.name}' created successfully!")
+
+            # Step 7: Delete old templates
+            await self._delete_old_templates(target_config.name)
             
         except Exception as e:
             logger.error(f"Error processing template '{target_config.name}': {e}")
@@ -214,6 +217,59 @@ class TemplateGenerator:
         logger.info("Converting VM to template...")
         convert_result = await self.api.convert_vm_to_template(vm_id=vm_id)
         logger.info(f"VM converted to template: {convert_result}")
+
+    async def _delete_old_templates(self, template_name: str, curent_template_id: str) -> None:
+        """Delete old templates with the same name but older build IDs.
+        
+        Args:
+            template_name: The base name of the template without build ID
+            curent_template_id: The ID of the current template to keep
+        """
+        logger.info(f"Looking for old templates with base name: {template_name}")
+        
+        all_templates = await self.api.list_templates()
+        template_pattern = f"template.{template_name}."
+        
+        # Find templates with matching name pattern
+        matching_templates = []
+        for template_id, template_info in all_templates.items():
+            template_label = template_info.get("name_label", "")
+            if template_pattern in template_label:
+                # Extract build ID from template name
+                try:
+                    build_id = int(template_label.split(".")[-1])
+                    matching_templates.append({
+                        "id": template_id,
+                        "name": template_label,
+                        "build_id": build_id
+                    })
+                except (ValueError, IndexError):
+                    # Skip if build ID extraction fails
+                    continue
+                    
+        # Sort templates by build ID (descending)
+        matching_templates.sort(key=lambda x: x["build_id"], reverse=True)
+        
+        logger.info(f"Found {len(matching_templates)} matching templates")
+        
+        templates_to_delete = [
+            template for template in matching_templates
+            if template["id"] != curent_template_id
+        ]
+        
+        if not templates_to_delete:
+            logger.info(f"No old templates to delete for '{template_name}'")
+            return
+            
+        # Delete old templates
+        for template in templates_to_delete:
+            try:
+                logger.info(f"Deleting old template: {template['name']} (ID: {template['id']})")
+                delete_result = await self.api.delete_template(template["id"])
+                logger.info(f"Template deleted: {delete_result}")
+            except Exception as e:
+                logger.warning(f"Failed to delete template '{template['name']}': {e}")
+                continue
 
 
 def get_version_name(distribution, version):
