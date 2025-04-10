@@ -1,9 +1,38 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any, Literal
 
 import aiohttp
 import requests
 from jsonrpc_websocket import Server
+from pydantic import BaseModel, Field, validator
+
+# Pydantic models for API parameter validation
+class VmCreateParams(BaseModel):
+    name_label: str
+    name_description: str
+    template_id: str
+    network_id: str
+    cpus: int = Field(1, ge=1)
+    memory: int = Field(1, ge=1)
+    bootAfterCreate: bool = False
+    tags: List[str] = []
+
+class DiskAttachParams(BaseModel):
+    vm_id: str
+    vdi_id: str
+    mode: Literal["RO", "RW"] = "RW"
+    bootable: bool = True
+
+class BootOrderParams(BaseModel):
+    vm_id: str
+    boot_order: str
+    
+    @validator('boot_order')
+    def validate_boot_order(cls, v):
+        allowed_chars = set('cdn')
+        if not all(c in allowed_chars for c in v):
+            raise ValueError("Boot order can only contain 'c', 'd', or 'n' characters")
+        return v
 
 class XenOrchestraApi:
     def __init__(
@@ -114,6 +143,18 @@ class XenOrchestraApi:
         bootAfterCreate: bool = False,
         tags: Optional[list] = [],
     ) -> dict:
+        # Validate parameters with Pydantic
+        params = VmCreateParams(
+            name_label=name_label,
+            name_description=name_description,
+            template_id=template_id,
+            network_id=network_id,
+            cpus=cpus,
+            memory=memory,
+            bootAfterCreate=bootAfterCreate,
+            tags=tags or [],
+        )
+        
         return await self.ws.vm.create(
             acls=[],
             clone=False,
@@ -122,45 +163,53 @@ class XenOrchestraApi:
                 "method": "network",
                 "repository": "pxe"
             },
-            bootAfterCreate=bootAfterCreate,
-            name_label=name_label,
-            name_description=name_description,
-            template=template_id,
+            bootAfterCreate=params.bootAfterCreate,
+            name_label=params.name_label,
+            name_description=params.name_description,
+            template=params.template_id,
             VDIs=[],
             VIFs=[
                 {
-                    "network": network_id,
+                    "network": params.network_id,
                     "allowedIpv4Addresses": [],
                     "allowedIpv6Addresses": [],
                 },
             ],
-            CPUs=cpus,
-            cpusMax=cpus,
+            CPUs=params.cpus,
+            cpusMax=params.cpus,
             cpuWeight=None,
             cpuCap=None,
-            memory=memory * 1024 * 1024 * 1024,
+            memory=params.memory * 1024 * 1024 * 1024,
             copyHostBiosStrings=True,
             createVtpm=False,
             destroyCloudConfigVdiAfterBoot=False,
             secureBoot=False,
             shared=False,
             coreOs=False,
-            tags=tags,
+            tags=params.tags,
             hvmBootFirmware="uefi",
         )
 
-    async def attack_vdi_to_vm(
+    async def attach_vdi_to_vm(
         self,
         vm_id: str,
         vdi_id: str,
         mode: Optional[str] = "RW",
         bootable: Optional[bool] = True,
     ) -> bool:
-        return await self.ws.vm.attachDisk(
-            vdi=vdi_id,
-            vm=vm_id,
+        # Validate parameters with Pydantic
+        params = DiskAttachParams(
+            vm_id=vm_id,
+            vdi_id=vdi_id,
             mode=mode,
             bootable=bootable,
+        )
+        
+        return await self.ws.vm.attachDisk(
+            vdi=params.vdi_id,
+            vm=params.vm_id,
+            mode=params.mode,
+            bootable=params.bootable,
         )
 
     async def set_boot_order(
@@ -177,9 +226,15 @@ class XenOrchestraApi:
         # Example: "dn"
         # means boot from DVD-Drive, then Network
     ) -> bool:
+        # Validate parameters with Pydantic
+        params = BootOrderParams(
+            vm_id=vm_id,
+            boot_order=boot_order,
+        )
+        
         return await self.ws.vm.setBootOrder(
-            vm=vm_id,
-            order=boot_order,
+            vm=params.vm_id,
+            order=params.boot_order,
         )
 
     async def convert_vm_to_template(
