@@ -6,7 +6,7 @@ import yaml
 import logging
 from typing import Dict, List, Optional, Any, Literal
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from services.debian_cloud_image import DebianCloudImage
 from services.xen_orchestra import XenOrchestraApi
@@ -26,13 +26,15 @@ class SourceConfig(BaseModel):
     version: int = Field(description="The distribution version number")
     variant: str = Field(description="The image variant (e.g. genericcloud)")
 
-    @validator('distribution')
+    @field_validator('distribution')
+    @classmethod
     def validate_distribution(cls, v):
         if v.lower() != 'debian':
             raise ValueError('Currently only Debian distribution is supported')
         return v.lower()
     
-    @validator('architecture')
+    @field_validator('architecture')
+    @classmethod
     def validate_architecture(cls, v):
         return v.lower()
 
@@ -46,9 +48,8 @@ class TargetConfig(BaseModel):
 
 
 class TemplateConfig(BaseModel):
-    template: Dict[str, Any] = Field(description="Template configuration")
-    
-    @validator('template')
+    @field_validator('template')
+    @classmethod
     def validate_template(cls, v):
         if 'source' not in v or 'target' not in v:
             raise ValueError("Template must have both 'source' and 'target' sections")
@@ -81,9 +82,12 @@ class TemplateGenerator:
             image_path = await self._prepare_image(source_config)
             
             # Step 2: Get required XCP-ng resources
-            sr_id = await self._get_storage_repository(target_config.sr)
-            template_id = await self._get_base_template(source_config)
-            network_id = await self._get_network(target_config.network)
+            # Gather resources in parallel
+            sr_id, template_id, network_id = await asyncio.gather(
+                self._get_storage_repository(target_config.sr),
+                self._get_base_template(source_config),
+                self._get_network(target_config.network)
+            )
             
             # Step 3: Import disk
             vdi_id = await self._import_disk(image_path, sr_id)
@@ -101,7 +105,7 @@ class TemplateGenerator:
             logger.info(f"Template '{target_config.name}' created successfully!")
 
             # Step 7: Delete old templates
-            await self._delete_old_templates(target_config.name)
+            await self._delete_old_templates(target_config.name, vm_id)
             
         except Exception as e:
             logger.error(f"Error processing template '{target_config.name}': {e}")
@@ -169,7 +173,7 @@ class TemplateGenerator:
         logger.info(f"Image size: {image_size} bytes")
         
         logger.info(f"Importing disk to Xen Orchestra...")
-        vdi_id = self.api.import_disk(
+        vdi_id = await self.api.import_disk(
             sr_id=sr_id,
             file_path=image_path,
             upload_name=upload_file_name,
@@ -287,6 +291,39 @@ def get_version_name(distribution, version):
     return "Unknown"
 
 
+class AsyncAPISession:
+    """Context manager for Xen Orchestra API session."""
+    
+    def __init__(self, api: XenOrchestraApi):
+        self.api = api
+        
+    async def __aenter__(self):
+        try:
+            await self.api.connect()
+            logger.info("Connected to Xen Orchestra.")
+            
+            logger.info("Logging in...")
+            await self.api.login()
+            logger.info("Logged in.")
+            
+            return self.api
+        except Exception as e:
+            logger.error(f"Failed to establish API session: {e}")
+            # Make sure to disconnect if connect succeeded but login failed
+            try:
+                await self.api.disconnect()
+            except:
+                pass
+            raise
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        try:
+            await self.api.disconnect()
+            logger.info("Disconnected from Xen Orchestra.")
+        except Exception as e:
+            logger.error(f"Error disconnecting from API: {e}")
+
+
 async def main():
     """Main function to process all templates."""
     try:
@@ -323,33 +360,34 @@ async def main():
         logger.info("Connecting to Xen Orchestra...")
         api = XenOrchestraApi(host=host, auth_token=auth_token)
         
-        try:
-            await api.connect()
-            logger.info("Connected to Xen Orchestra.")
-            
-            logger.info("Logging in...")
-            await api.login()
-            logger.info("Logged in.")
-            
+        async with AsyncAPISession(api) as session_api:
             # Initialize template generator
-            generator = TemplateGenerator(api)
+            generator = TemplateGenerator(session_api)
             
-            # Process each template configuration
-            for template_config in templates_config:
-                try:
-                    await generator.process_template(template_config)
-                except Exception as e:
-                    logger.error(f"Error processing template: {e}")
-                    continue
-                    
-        finally:
-            # Always ensure we disconnect from the API
-            await api.disconnect()
-            logger.info("Disconnected from Xen Orchestra.")
+            # Process templates concurrently with a semaphore to limit concurrency
+            sem = asyncio.Semaphore(2)  # Process up to 2 templates at a time
+            
+            async def process_template_with_sem(template_config):
+                async with sem:
+                    try:
+                        await generator.process_template(template_config)
+                    except Exception as e:
+                        logger.error(f"Error processing template: {e}")
+            
+            # Create tasks for all templates
+            tasks = [
+                process_template_with_sem(template_config)
+                for template_config in templates_config
+            ]
+            
+            # Wait for all tasks to complete
+            if tasks:
+                await asyncio.gather(*tasks)
+            else:
+                logger.info("No templates to process")
             
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-
 
 if __name__ == "__main__":
     asyncio.get_event_loop().run_until_complete(main())
