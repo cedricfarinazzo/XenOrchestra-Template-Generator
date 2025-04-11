@@ -4,8 +4,8 @@ import asyncio
 from typing import Callable, Optional
 from services.debian_cloud_image import DebianCloudImage
 from services.xen_orchestra import XenOrchestraApi
-from models import SourceConfig, TargetConfig, TemplateConfig
-from utils import logger, get_version_name
+from services.models import SourceConfig, TargetConfig, TemplateConfig
+from services.utils import logger, get_version_name
 
 class TemplateGenerator:
     """Class to handle template generation process."""

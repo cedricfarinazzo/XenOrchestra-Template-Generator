@@ -1,5 +1,5 @@
 from services.xen_orchestra import XenOrchestraApi
-from utils import logger
+from services.utils import logger
 
 class AsyncAPISession:
     """Context manager for Xen Orchestra API session."""

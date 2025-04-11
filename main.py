@@ -16,11 +16,11 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRe
 from rich.table import Table
 from rich.logging import RichHandler
 
-from models import TemplateConfig
-from generator import TemplateGenerator
-from session import AsyncAPISession
+from services.models import TemplateConfig
+from services.generator import TemplateGenerator
+from services.session import AsyncAPISession
 from services.xen_orchestra import XenOrchestraApi
-from utils import logger
+from services.utils import logger
 
 # Configure rich-click
 click.rich_click.USE_RICH_MARKUP = True
