@@ -1,11 +1,11 @@
 import logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Configure logging - just create the logger without handlers
+# We'll add the RichHandler in main.py
 logger = logging.getLogger('template_generator')
+logger.setLevel(logging.INFO)
+# Don't propagate to root logger to avoid duplicate messages
+logger.propagate = False
 
 def get_version_name(distribution, version):
     """Get the version name for a distribution version."""

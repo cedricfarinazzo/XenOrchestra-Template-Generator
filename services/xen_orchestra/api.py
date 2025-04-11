@@ -43,7 +43,7 @@ class XenOrchestraApi:
         self.host = host + "/api/"
         self.auth_token = auth_token
 
-        self.http_host = host.replace("wss://", "http://")
+        self.http_host = host.replace("ws://", "http://")
         self.http_cookies = {
             "authenticationToken": auth_token,
         }

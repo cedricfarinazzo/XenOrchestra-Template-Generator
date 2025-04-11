@@ -36,8 +36,12 @@ click.rich_click.MAX_WIDTH = 100
 # Create a console for rich output
 console = Console()
 
-# Configure RichHandler for logging
-logger.handlers = [RichHandler(rich_tracebacks=True, console=console)]
+# Configure RichHandler for logging - ensure there's only one handler
+if logger.handlers:
+    # Clear any existing handlers
+    logger.handlers = []
+# Add the RichHandler
+logger.addHandler(RichHandler(rich_tracebacks=True, console=console, show_time=False))
 
 
 @click.group()
@@ -84,13 +88,18 @@ def cli():
     is_flag=True,
     help="Enable debug logging"
 )
-async def generate(config, xoa_url, xoa_token, concurrent, debug):
+def generate(config, xoa_url, xoa_token, concurrent, debug):
     """
     Generate VM templates from configuration file.
     
     Reads template specifications from the YAML configuration file and creates
     VM templates according to these specifications using Xen Orchestra API.
     """
+    # Run the async function in the event loop
+    return asyncio.run(_generate(config, xoa_url, xoa_token, concurrent, debug))
+
+async def _generate(config, xoa_url, xoa_token, concurrent, debug):
+    """Async implementation of generate command."""
     try:
         # Load configuration
         config_path = Path(config)
@@ -181,12 +190,17 @@ async def generate(config, xoa_url, xoa_token, concurrent, debug):
     envvar="XOA_TOKEN",
     help="Xen Orchestra API token [env var: XOA_TOKEN]"
 )
-async def list_templates(xoa_url, xoa_token):
+def list_templates(xoa_url, xoa_token):
     """
     List available templates on XCP-NG server.
     
     Connects to Xen Orchestra and displays a table of all VM templates.
     """
+    # Run the async function in the event loop
+    return asyncio.run(_list_templates(xoa_url, xoa_token))
+
+async def _list_templates(xoa_url, xoa_token):
+    """Async implementation of list_templates command."""
     try:
         # XenOrchestra API setup
         host = xoa_url or os.getenv("XOA_URL")
@@ -205,9 +219,9 @@ async def list_templates(xoa_url, xoa_token):
         
         async with AsyncAPISession(api) as session_api:
             with console.status("[green]Fetching templates...[/green]"):
-                templates = await session_api.get_templates()
+                templates_dict = await session_api.list_templates()
             
-            if not templates:
+            if not templates_dict:
                 console.print("[yellow]No templates found.[/yellow]")
                 return 0
                 
@@ -217,12 +231,12 @@ async def list_templates(xoa_url, xoa_token):
             table.add_column("CPUs", justify="right")
             table.add_column("Memory (GB)", justify="right")
             
-            for template in templates:
-                memory_gb = round(template.get("memory", {}).get("size", 0) / (1024**3), 1)
+            for template_id, template_info in templates_dict.items():
+                memory_gb = round(template_info.get("memory", {}).get("size", 0) / (1024**3), 1)
                 table.add_row(
-                    template.get("name_label", "Unknown"),
-                    template.get("uuid", "Unknown"),
-                    str(template.get("CPUs", {}).get("number", "N/A")),
+                    template_info.get("name_label", "Unknown"),
+                    template_info.get("uuid", "Unknown"),
+                    str(template_info.get("CPUs", {}).get("number", "N/A")),
                     str(memory_gb)
                 )
             
@@ -247,26 +261,66 @@ async def process_templates(api, templates_config, concurrency=2):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
+        BarColumn(bar_width=50),
         TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
         TimeRemainingColumn(),
-        console=console
+        TextColumn("[{task.completed}/{task.total}]"),
+        console=console,
+        expand=True
     ) as progress:
+        # Add an overall progress bar
+        overall_task = progress.add_task(
+            "[bold blue]Overall Progress[/bold blue]", 
+            total=len(templates_config),
+            completed=0
+        )
+        
         # Create tasks for all templates
         tasks = []
+        task_ids = {}
         
         for template_config in templates_config:
             target_config = template_config.get_target_config()
+            source_config = template_config.get_source_config()
+            
+            # Create a task for this template
+            template_name = f"{target_config.name} ({source_config.distribution} {source_config.version})"
             task_id = progress.add_task(
-                f"[cyan]Processing {target_config.name}[/cyan]", 
+                f"[cyan]{template_name}[/cyan]", 
                 total=100, 
-                start=False
+                start=False,
+                visible=True
             )
+            task_ids[task_id] = template_name
             
             # Create a callback to update progress
             def make_progress_callback(task_id):
                 def callback(percent):
+                    # Update this template's progress
                     progress.update(task_id, completed=percent * 100)
+                    
+                    # Update overall progress
+                    completed_templates = sum(1 for tid in task_ids if progress.tasks[tid].completed >= 100)
+                    progress.update(overall_task, completed=completed_templates)
+                    
+                    # Add a nice status description
+                    if percent < 0.25:
+                        status = "⬇️ Downloading image"
+                    elif percent < 0.30:
+                        status = "🔍 Getting resources"
+                    elif percent < 0.70:
+                        status = "📤 Importing disk"
+                    elif percent < 0.80:
+                        status = "🖥️ Creating VM" 
+                    elif percent < 0.90:
+                        status = "⚙️ Configuring VM"
+                    elif percent < 0.95:
+                        status = "🔄 Converting to template"
+                    else:
+                        status = "🧹 Cleaning up"
+                    
+                    progress.update(task_id, description=f"[cyan]{template_name}[/cyan] {status}")
+                    
                 return callback
             
             # Process template with semaphore
@@ -278,10 +332,16 @@ async def process_templates(api, templates_config, concurrency=2):
                             config,
                             progress_callback=make_progress_callback(task_id)
                         )
-                        progress.update(task_id, completed=100)
+                        progress.update(task_id, 
+                                      completed=100, 
+                                      description=f"[green]{task_ids[task_id]}[/green] ✅ Complete")
                     except Exception as e:
-                        progress.update(task_id, description=f"[red]Error: {target_config.name}[/red]")
-                        console.print(f"[bold red]Error processing {target_config.name}:[/bold red] {str(e)}")
+                        error_msg = str(e)
+                        if len(error_msg) > 30:  # Truncate long error messages
+                            error_msg = error_msg[:30] + "..."
+                        progress.update(task_id, 
+                                      description=f"[red]{task_ids[task_id]}[/red] ❌ Error: {error_msg}")
+                        console.print(f"[bold red]Error processing {task_ids[task_id]}:[/bold red] {str(e)}")
                         raise
             
             tasks.append(process_with_sem(template_config, task_id))
@@ -293,13 +353,17 @@ async def process_templates(api, templates_config, concurrency=2):
             
             if failures:
                 console.print(f"[bold red]{len(failures)}/{len(tasks)} templates failed to process[/bold red]")
+                for failure in failures:
+                    console.print(f"[red]Error: {str(failure)}[/red]")
+            else:
+                console.print("[bold green]All templates processed successfully![/bold green]")
         else:
             console.print("[yellow]No templates to process[/yellow]")
 
 
 def main():
     """Entry point for the CLI."""
-    return asyncio.run(cli())
+    return cli()
 
 
 if __name__ == "__main__":
