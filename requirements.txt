@@ -3,3 +3,5 @@ requests
 tqdm
 pyyaml
 pydantic
+rich-click
+rich
