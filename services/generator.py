@@ -2,10 +2,11 @@ from pathlib import Path
 import time
 import asyncio
 from typing import Callable, Optional
-from services.debian_cloud_image import DebianCloudImage
 from services.xen_orchestra import XenOrchestraApi
 from services.models import SourceConfig, TargetConfig, TemplateConfig
 from services.utils import logger, get_version_name
+
+from services.image_provider import DebianImageProvider
 
 class TemplateGenerator:
     """Class to handle template generation process."""
@@ -111,28 +112,18 @@ class TemplateGenerator:
         """Download and prepare the disk image."""
         if progress_callback is None:
             progress_callback = lambda _: None
-            
-        debian_cloud_dl = DebianCloudImage(
+
+        debian_image_provider = DebianImageProvider(
             version=str(config.version),
             arch=config.architecture,
             variant=config.variant
         )
-        
-        image_filename = debian_cloud_dl.get_image_name().replace(".qcow2", f".{self.dl_format}")
-        image_path = self.dl_folder / image_filename
-        
-        if image_path.exists():
-            logger.info(f"Using existing image: {image_path}")
-            progress_callback(1.0)  # Skip directly to 100% if file exists
-        else:
-            logger.info(f"Downloading and converting image for {config.distribution} {config.version}...")
-            image_path = debian_cloud_dl.download_and_convert_image_to_format(
-                folder_out=self.dl_folder,
-                format=self.dl_format,
-                progress_callback=progress_callback
-            )
-            logger.info(f"Image downloaded and converted: {image_path}")
-            
+        # Download the image in qcow2 format
+        image_path = debian_image_provider.download_image(
+            use_cache=True,
+            progress_callback=progress_callback
+        )
+
         return image_path
         
     async def _get_storage_repository(self, sr_name: str) -> str:
