@@ -6,7 +6,7 @@ from services.xen_orchestra import XenOrchestraApi
 from services.models import SourceConfig, TargetConfig, TemplateConfig
 from services.utils import logger, get_version_name
 
-from services.image_provider import DebianImageProvider
+from services.image_providers import DebianImageProvider
 
 class TemplateGenerator:
     """Class to handle template generation process."""

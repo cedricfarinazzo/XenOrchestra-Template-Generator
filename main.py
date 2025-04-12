@@ -18,7 +18,7 @@ from rich.logging import RichHandler
 
 from services.models import TemplateConfig
 from services.generator import TemplateGenerator
-from services.session import AsyncAPISession
+from services.async_session import AsyncAPISession
 from services.xen_orchestra import XenOrchestraApi
 from services.utils import logger
 
