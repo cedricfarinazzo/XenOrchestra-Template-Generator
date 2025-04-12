@@ -18,9 +18,9 @@ from rich.logging import RichHandler
 
 from services.models import TemplateConfig
 from services.generator import TemplateGenerator
-from services.async_session import AsyncAPISession
+from services.tools import AsyncAPISession
 from services.xen_orchestra import XenOrchestraApi
-from services.utils import logger
+from services.tools import logger
 
 # Configure rich-click
 click.rich_click.USE_RICH_MARKUP = True

@@ -1,11 +1,9 @@
-from enum import Enum
 from typing import Literal, Optional, Callable
 from pathlib import Path
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 import requests
-import subprocess
 
-from ..utils import logger
+from ..tools import logger
 
 from .base import BaseImageProvider, IMAGE_OUTPUT_DIR
 

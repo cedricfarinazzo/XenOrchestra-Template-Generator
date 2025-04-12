@@ -4,7 +4,7 @@ import asyncio
 from typing import Callable, Optional
 from services.xen_orchestra import XenOrchestraApi
 from services.models import SourceConfig, TargetConfig, TemplateConfig
-from services.utils import logger, get_version_name
+from services.tools import logger, get_version_name
 
 from services.image_providers import DebianImageProvider
 

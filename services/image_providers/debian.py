@@ -5,7 +5,7 @@ from pydantic import BaseModel, field_validator
 import requests
 import subprocess
 
-from ..utils import logger
+from ..tools import logger
 
 from .base import BaseImageProvider, IMAGE_OUTPUT_DIR
 
