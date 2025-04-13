@@ -1,38 +1,13 @@
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, Callable
 
 import aiohttp
 import requests
 from jsonrpc_websocket import Server
-from pydantic import BaseModel, Field, validator
 
-# Pydantic models for API parameter validation
-class VmCreateParams(BaseModel):
-    name_label: str
-    name_description: str
-    template_id: str
-    network_id: str
-    cpus: int = Field(1, ge=1)
-    memory: int = Field(1, ge=1)
-    bootAfterCreate: bool = False
-    tags: List[str] = []
+from ..tools import BufferedReaderWithProgressCallback
 
-class DiskAttachParams(BaseModel):
-    vm_id: str
-    vdi_id: str
-    mode: Literal["RO", "RW"] = "RW"
-    bootable: bool = True
-
-class BootOrderParams(BaseModel):
-    vm_id: str
-    boot_order: str
-    
-    @validator('boot_order')
-    def validate_boot_order(cls, v):
-        allowed_chars = set('cdn')
-        if not all(c in allowed_chars for c in v):
-            raise ValueError("Boot order can only contain 'c', 'd', or 'n' characters")
-        return v
+from .models import VmCreateParams, DiskAttachParams, BootOrderParams
 
 class XenOrchestraApi:
     def __init__(
@@ -89,6 +64,7 @@ class XenOrchestraApi:
         sr_id: str,
         file_path: Path,
         upload_name: str,
+        progress_callback: Optional[Callable[[float], None]] = None
     ):
         upload_url = (
             self.http_host
@@ -104,7 +80,10 @@ class XenOrchestraApi:
                     "Content-Type": "application/octet-stream",
                     "Content-Length": str(file_path.stat().st_size),
                 },
-                data=file,
+                data=BufferedReaderWithProgressCallback(
+                    file.raw,
+                    progress_callback=progress_callback
+                ),
             )
 
         if response.status_code == 200:

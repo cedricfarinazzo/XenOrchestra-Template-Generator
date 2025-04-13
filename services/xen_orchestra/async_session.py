@@ -1,5 +1,5 @@
-from services.xen_orchestra import XenOrchestraApi
-from services.utils import logger
+from ..tools import logger
+from .api import XenOrchestraApi
 
 class AsyncAPISession:
     """Context manager for Xen Orchestra API session."""
@@ -10,11 +10,11 @@ class AsyncAPISession:
     async def __aenter__(self):
         try:
             await self.api.connect()
-            logger.info("Connected to Xen Orchestra.")
+            logger.debug("Connected to Xen Orchestra.")
             
-            logger.info("Logging in...")
+            logger.debug("Logging in...")
             await self.api.login()
-            logger.info("Logged in.")
+            logger.debug("Logged in.")
             
             return self.api
         except Exception as e:
@@ -29,6 +29,6 @@ class AsyncAPISession:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         try:
             await self.api.disconnect()
-            logger.info("Disconnected from Xen Orchestra.")
+            logger.debug("Disconnected from Xen Orchestra.")
         except Exception as e:
             logger.error(f"Error disconnecting from API: {e}")

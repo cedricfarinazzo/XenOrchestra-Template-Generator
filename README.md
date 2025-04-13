@@ -4,7 +4,7 @@ A Python-based tool for automating the creation of VM templates in XCP-NG using 
 
 ## Why This Project?
 
-This project was created to address a specific limitation in the XCP-NG ecosystem. While HashiCorp Packer has a provider for XCP-NG, it cannot be used to import existing VMDK disk images directly. This tool fills that gap by providing a streamlined workflow to:
+This project was created to address a specific limitation in the XCP-NG ecosystem. While Packer has a provider for XCP-NG, it cannot be used to import existing VMDK disk images directly. This tool fills that gap by providing a streamlined workflow to:
 
 1. Download cloud-init compatible images from distribution repositories
 2. Convert them to the appropriate format
@@ -31,16 +31,9 @@ By automating this process, we eliminate the manual steps typically required whe
 
 ## Installation
 
-1. Clone this repository:
+Install the required Python packages:
 
-```bash
-git clone https://gitlab.com/sed-infra-pegasus/xcp-ng/xo-template-generator.git
-cd xo-template-generator
-```
-
-2. Install the required Python packages:
-
-```bash
+```sh
 pip install -r requirements.txt
 ```
 
@@ -57,12 +50,14 @@ Create a `config.yml` file with the following structure:
 
 ```yaml
 ---
-- template:
+templates:
+  debian12:
     source:
       distribution: debian
       architecture: amd64
       version: 12
       variant: genericcloud
+      base_template: Debian Bookworm 12
     target:
       name: debian-12-genericcloud-amd64
       cpu: 1
@@ -70,14 +65,29 @@ Create a `config.yml` file with the following structure:
       network: "Pool-wide network associated with eth1"
       sr: "Local storage - srv3"
 
-- template:
+  debian11:
     source:
       distribution: debian
       architecture: amd64
       version: 11
       variant: genericcloud
+      base_template: Debian Bullseye 11
     target:
       name: debian-11-genericcloud-amd64
+      cpu: 1
+      memory: 1
+      network: "Pool-wide network associated with eth1"
+      sr: "Local storage - srv2"
+
+  ubuntu2404:
+    source:
+      distribution: ubuntu
+      architecture: amd64
+      version: 24.04.2
+      variant: live-server
+      base_template:  Ubuntu Noble Numbat 24.04
+    target:
+      name: ubuntu-24.04.2-live-server-amd64
       cpu: 1
       memory: 1
       network: "Pool-wide network associated with eth1"
@@ -90,10 +100,11 @@ Create a `config.yml` file with the following structure:
 
 | Field | Description | Required | Supported Values |
 |-------|-------------|----------|-----------------|
-| `distribution` | Linux distribution | Yes | `debian` (currently only Debian is supported) |
+| `distribution` | Linux distribution | Yes | `debian`, `ubuntu` |
 | `architecture` | CPU architecture | Yes | `amd64`, `arm64` |
 | `version` | Distribution version | Yes | Integer version number (e.g., `11`, `12`) |
 | `variant` | Image variant | Yes | `genericcloud` and other Debian cloud variants |
+| `base_template` | Name for the template in XCP-NG | Yes | Descriptive name (e.g., `Debian Bookworm 12`) || 
 
 #### Target Configuration
 
@@ -133,9 +144,6 @@ export XOA_TOKEN="your-api-token"
 # Using a custom configuration file
 ./main.py generate --config my-templates.yml 
 
-# Setting concurrency (number of templates to process in parallel)
-./main.py generate --concurrent 3
-
 # Enable debug logging
 ./main.py generate --debug
 ```
@@ -146,30 +154,13 @@ export XOA_TOKEN="your-api-token"
 ./main.py list-templates
 ```
 
-### Example Workflow
-
-1. Configure your `config.yml` with desired templates
-2. Export your Xen Orchestra API credentials:
-```bash
-export XOA_URL="https://your-xoa-instance.example.com"
-export XOA_TOKEN="your-api-token"
-```
-3. Run the generator:
-```bash
-./main.py generate
-```
-4. Review the created templates using:
-```bash
-./main.py list-templates
-```
-
 ## How It Works
 
 The template generation process follows these steps:
 
-1. **Image Preparation**: Downloads and converts the cloud image to VMDK format
+1. **Image Preparation**: Downloads and converts the cloud image to VMDK format or ISO format
 2. **Resource Collection**: Gets required XCP-NG resources (storage, network, base template)
-3. **Disk Import**: Imports the converted disk image to XCP-NG
+3. **Disk Import**: Imports the disk image to XCP-NG
 4. **VM Creation**: Creates a new VM with specified parameters
 5. **VM Configuration**: Attaches the imported disk and sets boot order
 6. **Template Conversion**: Converts the VM into a template
@@ -177,29 +168,56 @@ The template generation process follows these steps:
 
 ## Troubleshooting
 
-### Common Issues
 
-- **Template Not Found**: Ensure the base template exists in XCP-NG with the expected name format
-- **Network/SR Not Found**: Verify the exact names of networks and storage repositories in XCP-NG
-- **API Connection Failed**: Check your API URL and token are correct
+### Verbosity Levels
 
-### Debug Mode
-
-Use the `--debug` flag to get more detailed logs:
+The tool supports multiple verbosity levels to help with troubleshooting:
 
 ```bash
-./main.py generate --debug
+# Default level (WARNING)
+./main.py generate
+
+# Increased verbosity (INFO level)
+./main.py -v generate
+
+# Debug level (maximum verbosity)
+./main.py -vv generate
 ```
+
+You can use these verbosity flags with any command:
+
+```bash
+# List templates with debug output
+./main.py -vv list-templates
+```
+
+The verbosity flag controls the detail level of log messages:
+- Default: Only WARNING and above (errors and warnings)
+- `-v`: INFO level and above (general progress information)
+- `-vv`: DEBUG level (detailed diagnostic information)
 
 ## Extending
 
 ### Supporting New Distributions
 
-Currently, only Debian is supported. To add support for other distributions:
+Currently, the tool supports both Debian and Ubuntu distributions. To add support for additional distributions:
 
-1. Create a new service class similar to `DebianCloudImage`
-2. Update the `SourceConfig` model to allow the new distribution
-3. Modify the `TemplateGenerator._prepare_image` method to use the appropriate service
+1. Create a new provider class that inherits from `BaseImageProvider` (`service/image_providers/base.py`):
+
+```python
+class AlpineImageProvider(BaseImageProvider):
+  # Code to complete
+```
+
+2. Register your provider in the `IMAGE_PROVIDERS` dictionary:
+
+```python
+IMAGE_PROVIDERS = {
+  "debian": DebianImageProvider,
+  "ubuntu": UbuntuImageProvider,
+  "alpine": AlpineImageProvider,  # Add your new provider here
+}
+```
 
 ## Credits
 
