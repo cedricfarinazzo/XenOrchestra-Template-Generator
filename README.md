@@ -29,6 +29,10 @@ By automating this process, we eliminate the manual steps typically required whe
 - XCP-NG server with available storage repositories
 - Xen Orchestra API token
 
+## Demo
+
+![Template Generator Demo](assets/demo.gif)
+
 ## Installation
 
 Install the required Python packages:
