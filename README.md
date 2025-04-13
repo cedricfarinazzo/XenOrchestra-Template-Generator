@@ -168,17 +168,35 @@ The template generation process follows these steps:
 
 ## Troubleshooting
 
-### Debug Mode
 
-Use the `--debug` flag to get more detailed logs:
+### Verbosity Levels
+
+The tool supports multiple verbosity levels to help with troubleshooting:
 
 ```bash
-./main.py generate --debug
+# Default level (WARNING)
+./main.py generate
+
+# Increased verbosity (INFO level)
+./main.py -v generate
+
+# Debug level (maximum verbosity)
+./main.py -vv generate
 ```
 
-## Extending
+You can use these verbosity flags with any command:
 
-### Supporting New Distributions
+```bash
+# List templates with debug output
+./main.py -vv list-templates
+```
+
+The verbosity flag controls the detail level of log messages:
+- Default: Only WARNING and above (errors and warnings)
+- `-v`: INFO level and above (general progress information)
+- `-vv`: DEBUG level (detailed diagnostic information)
+
+## Extending
 
 ### Supporting New Distributions
 
