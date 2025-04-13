@@ -162,8 +162,6 @@ async def _generate(config: str, xoa_url: str, xoa_token: str):
     
     return 0
 
-
-
 @cli.command()
 @click.option(
     "--xoa-url", "-u",
