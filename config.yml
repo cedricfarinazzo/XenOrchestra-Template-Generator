@@ -1,24 +1,42 @@
 ---
-- template:
+templates:
+  debian12:
     source:
       distribution: debian
       architecture: amd64
       version: 12
       variant: genericcloud
+      base_template: Debian Bookworm 12
     target:
       name: debian-12-genericcloud-amd64
       cpu: 1
       memory: 1
       network: "Pool-wide network associated with eth1"
       sr: "Local storage - srv3"
-- template:
+
+  debian11:
     source:
       distribution: debian
       architecture: amd64
       version: 11
       variant: genericcloud
+      base_template: Debian Bullseye 11
     target:
       name: debian-11-genericcloud-amd64
+      cpu: 1
+      memory: 1
+      network: "Pool-wide network associated with eth1"
+      sr: "Local storage - srv2"
+
+  ubuntu2404:
+    source:
+      distribution: ubuntu
+      architecture: amd64
+      version: 24.04.2
+      variant: live-server
+      base_template:  Ubuntu Noble Numbat 24.04
+    target:
+      name: ubuntu-24.04.2-live-server-amd64
       cpu: 1
       memory: 1
       network: "Pool-wide network associated with eth1"
