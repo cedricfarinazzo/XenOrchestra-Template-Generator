@@ -1,7 +1,7 @@
 jsonrpc-websocket
 requests
-tqdm
 pyyaml
 pydantic
+pydantic-yaml
 rich-click
 rich
