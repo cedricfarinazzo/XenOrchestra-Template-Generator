@@ -46,7 +46,13 @@ logger.addHandler(RichHandler(rich_tracebacks=True, console=console, show_time=F
 
 @click.group()
 @click.version_option(version="1.0.0")
-def cli():
+@click.option(
+    "--verbose", "-v",
+    count=True,
+    help="Increase logging verbosity (use -v for INFO, -vv for DEBUG)"
+)
+@click.pass_context
+def cli(ctx, verbose):
     """
     # XCP-NG Template Generator
 
@@ -55,7 +61,19 @@ def cli():
     This tool creates VM templates based on configurations defined in a YAML file.
     It downloads cloud images and configures them for use with XCP-NG.
     """
-    pass
+    # Set logging level based on verbosity count
+    if verbose == 0:
+        logger.setLevel("WARNING")  # Default level
+    elif verbose == 1:
+        logger.setLevel("INFO")
+        console.log("[green]Verbose mode enabled (INFO)[/green]")
+    elif verbose >= 2:
+        logger.setLevel("DEBUG")
+        console.log("[bold green]Debug mode enabled (DEBUG)[/bold green]")
+    
+    # Store verbose setting in context for subcommands
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
 
 
 @cli.command()
@@ -76,30 +94,18 @@ def cli():
     envvar="XOA_TOKEN",
     help="Xen Orchestra API token [env var: XOA_TOKEN]"
 )
-@click.option(
-    "--debug", "-d",
-    is_flag=True,
-    help="Enable debug logging"
-)
-def generate(config: str, xoa_url: str, xoa_token: str, concurrent: int, debug: bool):
+@click.pass_context
+def generate(ctx, config: str, xoa_url: str, xoa_token: str):
     """
     Generate VM templates from configuration file.
     
     Reads template specifications from the YAML configuration file and creates
     VM templates according to these specifications using Xen Orchestra API.
     """
-
-    # Set debug level if the flag is provided
-    if debug:
-        logger.setLevel("DEBUG")
-        console.log("[bold green]Debug mode enabled[/bold green]")
-    else:
-        logger.setLevel("INFO")
-
     # Run the async function in the event loop
-    return asyncio.run(_generate(config, xoa_url, xoa_token, concurrent))
+    return asyncio.run(_generate(config, xoa_url, xoa_token))
 
-async def _generate(config: str, xoa_url: str, xoa_token: str, concurrent: int):
+async def _generate(config: str, xoa_url: str, xoa_token: str):
     """Async implementation of generate command."""
     try:
         # XenOrchestra API setup
@@ -169,7 +175,8 @@ async def _generate(config: str, xoa_url: str, xoa_token: str, concurrent: int):
     envvar="XOA_TOKEN",
     help="Xen Orchestra API token [env var: XOA_TOKEN]"
 )
-def list_templates(xoa_url: str, xoa_token: str):
+@click.pass_context
+def list_templates(ctx, xoa_url: str, xoa_token: str):
     """
     List available templates on XCP-NG server.
     
