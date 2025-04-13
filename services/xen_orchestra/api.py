@@ -1,9 +1,11 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 import aiohttp
 import requests
 from jsonrpc_websocket import Server
+
+from ..tools import BufferedReaderWithProgressCallback
 
 from .models import VmCreateParams, DiskAttachParams, BootOrderParams
 
@@ -62,6 +64,7 @@ class XenOrchestraApi:
         sr_id: str,
         file_path: Path,
         upload_name: str,
+        progress_callback: Optional[Callable[[float], None]] = None
     ):
         upload_url = (
             self.http_host
@@ -77,7 +80,10 @@ class XenOrchestraApi:
                     "Content-Type": "application/octet-stream",
                     "Content-Length": str(file_path.stat().st_size),
                 },
-                data=file,
+                data=BufferedReaderWithProgressCallback(
+                    file.raw,
+                    progress_callback=progress_callback
+                ),
             )
 
         if response.status_code == 200:
