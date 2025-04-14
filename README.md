@@ -25,9 +25,10 @@ By automating this process, we eliminate the manual steps typically required whe
 ## Requirements
 
 - Python 3.8 or higher
+- `qemu-img` installed
 - Access to a Xen Orchestra API endpoint
-- XCP-NG server with available storage repositories
 - Xen Orchestra API token
+- XCP-NG server with available storage repositories
 
 ## Demo
 
