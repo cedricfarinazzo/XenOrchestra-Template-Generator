@@ -66,6 +66,12 @@ class XenOrchestraApi:
         upload_name: str,
         progress_callback: Optional[Callable[[float], None]] = None
     ):
+        supported_formats = ["iso", "raw"]
+        if file_path.suffix[1:] not in supported_formats:
+            raise ValueError(
+                f"Unsupported file format. Supported formats are: {supported_formats}"
+            )
+
         upload_url = (
             self.http_host
             + f"/rest/v0/srs/{sr_id}/vdis"
