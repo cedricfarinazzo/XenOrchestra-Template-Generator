@@ -31,6 +31,6 @@ class BaseImageProvider(ABC):
             progress_callback: Optional callback function to report progress (0.0 to 1.0).
 
         Returns:
-            Path to the downloaded image in VMDK format or ISO format.
+            Path to the downloaded image in ISO format.
         """
         raise NotImplementedError("Subclasses must implement this method.")

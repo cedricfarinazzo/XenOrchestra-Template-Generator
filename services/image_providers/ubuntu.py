@@ -49,7 +49,7 @@ class UbuntuImageProvider(BaseImageProvider):
         progress_callback: Optional[Callable[[float], None]] = None
     ) -> Path:
         """
-        Download the image in qcow2 format.
+        Download the image in ISO format.
         Args:
             image_output_path: Path to save the downloaded image.
             use_cache: If True, use cached image if available.

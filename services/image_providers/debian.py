@@ -31,7 +31,7 @@ class DebianVersionName(str, Enum):
 VERSION_TO_NAME = {
     DebianVersion.BOOKWORM: DebianVersionName.BOOKWORM,
     DebianVersion.BULLSEYE: DebianVersionName.BULLSEYE,
-    DebianVersion.BUSTER: DebianVersionName.BUSTER, 
+    DebianVersion.BUSTER: DebianVersionName.BUSTER,
     DebianVersion.STRETCH: DebianVersionName.STRETCH,
     DebianVersion.JESSIE: DebianVersionName.JESSIE,
     DebianVersion.WHEEZY: DebianVersionName.WHEEZY,
@@ -41,14 +41,14 @@ class DebianImageConfig(BaseModel):
     version: str
     arch: Literal["amd64", "arm64"] = "amd64"
     variant: str = "genericcloud"
-    
+
     @field_validator('version')
     def validate_version(cls, v):
         if v not in VERSION_TO_NAME:
             valid_versions = ", ".join(VERSION_TO_NAME.keys())
             raise ValueError(f"Unsupported Debian version: {v}. Valid versions are: {valid_versions}")
         return v
-    
+
     @field_validator('arch')
     def validate_architecture(cls, v):
         return v.lower()
@@ -77,7 +77,7 @@ class DebianImageProvider(BaseImageProvider):
 
     def __get_image_name(self) -> str:
         return f"debian-{self.config.version}-{self.config.variant}-{self.config.arch}.qcow2"
-    
+
     def __get_image_url(self) -> str:
         version_name = self.__get_version_name()
         image_name = self.__get_image_name()
@@ -109,7 +109,7 @@ class DebianImageProvider(BaseImageProvider):
             progress_callback(1.0)
             # Return the existing image path
             return image_output_path
-        
+
         # Download the image
         image_url = self.__get_image_url()
         logger.info(f"Downloading image from {image_url} to {image_output_path}")
@@ -137,25 +137,25 @@ class DebianImageProvider(BaseImageProvider):
         progress_callback: Optional[Callable[[float], None]] = None
     ) -> Path:
         """
-        Convert the downloaded image to VMDK format.
+        Convert the downloaded image to RAW format.
         Args:
             image_qcow2_path: Path to the downloaded qcow2 image.
         Returns:
-            Path to the converted VMDK image.
+            Path to the converted RAW image.
         """
-        image_vmdk_path = image_qcow2_path.with_suffix(".vmdk")
+        image_raw_path = image_qcow2_path.with_suffix(".raw")
 
-        logger.info(f"Converting image to VMDK format: {image_vmdk_path}")
+        logger.info(f"Converting image to RAW format: {image_raw_path}")
 
-        # Check if the VMDK image already exists
-        if use_cache and image_vmdk_path.exists():
-            logger.info(f"VMDK image already exists: {image_vmdk_path}")
-            return image_vmdk_path    
-    
+        # Check if the RAW image already exists
+        if use_cache and image_raw_path.exists():
+            logger.info(f"RAW image already exists: {image_raw_path}")
+            return image_raw_path
+
         # Use qemu-img to convert the image
-        subprocess.run(["qemu-img", "convert", "-O", "vmdk", str(image_qcow2_path), str(image_vmdk_path)], check=True)
-        logger.info(f"Converted image to VMDK format: {image_vmdk_path}")
-        return image_vmdk_path
+        subprocess.run(["qemu-img", "convert", "-f", "qcow2", "-O", "raw", str(image_qcow2_path), str(image_raw_path)], check=True)
+        logger.info(f"Converted image to RAW format: {image_raw_path}")
+        return image_raw_path
 
     def download_image(self, use_cache = True, progress_callback = None):
         """
@@ -164,7 +164,7 @@ class DebianImageProvider(BaseImageProvider):
             use_cache: If True, use cached image if available.
             progress_callback: Optional callback function to report progress (0.0 to 1.0).
         Returns:
-            Path to the downloaded image in VMDK format.
+            Path to the downloaded image in RAW format.
         """
         # Define the output path for the qcow2 image
         image_qcow2_path = IMAGE_OUTPUT_DIR / self.__get_image_name()
@@ -172,7 +172,7 @@ class DebianImageProvider(BaseImageProvider):
         # Download the image
         self.__download(image_qcow2_path, use_cache, progress_callback)
 
-        # Convert to VMDK format
-        image_vmdk_path = self.__convert_image(image_qcow2_path, use_cache, progress_callback)
+        # Convert to RAW format
+        image_raw_path = self.__convert_image(image_qcow2_path, use_cache, progress_callback)
 
-        return image_vmdk_path
+        return image_raw_path

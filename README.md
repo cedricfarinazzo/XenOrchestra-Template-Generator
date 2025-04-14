@@ -4,7 +4,7 @@ A Python-based tool for automating the creation of VM templates in XCP-NG using 
 
 ## Why This Project?
 
-This project was created to address a specific limitation in the XCP-NG ecosystem. While Packer has a provider for XCP-NG, it cannot be used to import existing VMDK disk images directly. This tool fills that gap by providing a streamlined workflow to:
+This project was created to address a specific limitation in the XCP-NG ecosystem. While Packer has a provider for XCP-NG, it cannot be used to import existing disk images directly. This tool fills that gap by providing a streamlined workflow to:
 
 1. Download cloud-init compatible images from distribution repositories
 2. Convert them to the appropriate format
@@ -162,7 +162,7 @@ export XOA_TOKEN="your-api-token"
 
 The template generation process follows these steps:
 
-1. **Image Preparation**: Downloads and converts the cloud image to VMDK format or ISO format
+1. **Image Preparation**: Downloads and converts the cloud image to ISO format
 2. **Resource Collection**: Gets required XCP-NG resources (storage, network, base template)
 3. **Disk Import**: Imports the disk image to XCP-NG
 4. **VM Creation**: Creates a new VM with specified parameters
