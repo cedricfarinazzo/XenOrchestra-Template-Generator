@@ -9,12 +9,9 @@ from ..tools import BufferedReaderWithProgressCallback
 
 from .models import VmCreateParams, DiskAttachParams, BootOrderParams
 
+
 class XenOrchestraApi:
-    def __init__(
-        self,
-        host: str,
-        auth_token: str
-    ) -> None:
+    def __init__(self, host: str, auth_token: str) -> None:
         self.host = host + "/api/"
         self.auth_token = auth_token
 
@@ -64,7 +61,7 @@ class XenOrchestraApi:
         sr_id: str,
         file_path: Path,
         upload_name: str,
-        progress_callback: Optional[Callable[[float], None]] = None
+        progress_callback: Optional[Callable[[float], None]] = None,
     ):
         supported_formats = ["iso", "raw"]
         if file_path.suffix[1:] not in supported_formats:
@@ -87,8 +84,7 @@ class XenOrchestraApi:
                     "Content-Length": str(file_path.stat().st_size),
                 },
                 data=BufferedReaderWithProgressCallback(
-                    file.raw,
-                    progress_callback=progress_callback
+                    file.raw, progress_callback=progress_callback
                 ),
             )
 
@@ -101,7 +97,7 @@ class XenOrchestraApi:
 
     async def list_templates(self) -> dict:
         return await self.ws.xo.getAllObjects(filter={"type": "VM-template"})
-    
+
     async def get_template_by_name(self, name: str) -> Optional[dict]:
         for template_id, template_info in (await self.list_templates()).items():
             if template_info["name_label"] == name:
@@ -110,7 +106,7 @@ class XenOrchestraApi:
 
     async def get_networks(self) -> dict:
         return await self.ws.xo.getAllObjects(filter={"type": "network"})
-    
+
     async def get_network_by_name(self, name: str) -> Optional[dict]:
         for network_id, network_info in (await self.get_networks()).items():
             if network_info["name_label"] == name:
@@ -139,15 +135,12 @@ class XenOrchestraApi:
             bootAfterCreate=bootAfterCreate,
             tags=tags or [],
         )
-        
+
         return await self.ws.vm.create(
             acls=[],
             clone=False,
             existingDisks={},
-            installation={
-                "method": "network",
-                "repository": "pxe"
-            },
+            installation={"method": "network", "repository": "pxe"},
             bootAfterCreate=params.bootAfterCreate,
             name_label=params.name_label,
             name_description=params.name_description,
@@ -189,7 +182,7 @@ class XenOrchestraApi:
             mode=mode,
             bootable=bootable,
         )
-        
+
         return await self.ws.vm.attachDisk(
             vdi=params.vdi_id,
             vm=params.vm_id,
@@ -216,7 +209,7 @@ class XenOrchestraApi:
             vm_id=vm_id,
             boot_order=boot_order,
         )
-        
+
         return await self.ws.vm.setBootOrder(
             vm=params.vm_id,
             order=params.boot_order,
@@ -229,16 +222,16 @@ class XenOrchestraApi:
         return await self.ws.vm.convertToTemplate(
             id=vm_id,
         )
-        
+
     async def delete_template(
         self,
         template_id: str,
     ) -> bool:
         """Delete a template.
-        
+
         Args:
             template_id: The ID of the template to delete
-            
+
         Returns:
             bool: True if successful, raises an exception otherwise
         """

@@ -4,6 +4,7 @@ from typing import Callable, Optional
 
 IMAGE_OUTPUT_DIR = Path(__file__).parent / "images"
 
+
 class BaseImageProvider(ABC):
     """
     Base class for image providers.
@@ -17,11 +18,10 @@ class BaseImageProvider(ABC):
         self.version = version
         self.arch = arch
 
-
     def download_image(
         self,
         use_cache: bool = True,
-        progress_callback: Optional[Callable[[float], None]] = None
+        progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Path:
         """
         Download the image with progress reporting.

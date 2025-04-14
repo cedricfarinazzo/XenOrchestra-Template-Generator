@@ -47,9 +47,10 @@ logger.addHandler(RichHandler(rich_tracebacks=True, console=console, show_time=F
 @click.group()
 @click.version_option(version="1.0.0")
 @click.option(
-    "--verbose", "-v",
+    "--verbose",
+    "-v",
     count=True,
-    help="Increase logging verbosity (use -v for INFO, -vv for DEBUG)"
+    help="Increase logging verbosity (use -v for INFO, -vv for DEBUG)",
 )
 @click.pass_context
 def cli(ctx, verbose):
@@ -57,7 +58,7 @@ def cli(ctx, verbose):
     # XCP-NG Template Generator
 
     Generate VM templates for XCP-NG using Xen Orchestra API.
-    
+
     This tool creates VM templates based on configurations defined in a YAML file.
     It downloads cloud images and configures them for use with XCP-NG.
     """
@@ -70,7 +71,7 @@ def cli(ctx, verbose):
     elif verbose >= 2:
         logger.setLevel("DEBUG")
         console.log("[bold green]Debug mode enabled (DEBUG)[/bold green]")
-    
+
     # Store verbose setting in context for subcommands
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
@@ -78,32 +79,33 @@ def cli(ctx, verbose):
 
 @cli.command()
 @click.option(
-    "--config", "-c",
+    "--config",
+    "-c",
     type=click.Path(exists=True, file_okay=True, readable=True),
     default="config.yml",
     help="Path to the YAML configuration file",
-    show_default=True
+    show_default=True,
 )
 @click.option(
-    "--xoa-url", "-u",
-    envvar="XOA_URL",
-    help="Xen Orchestra API URL [env var: XOA_URL]"
+    "--xoa-url", "-u", envvar="XOA_URL", help="Xen Orchestra API URL [env var: XOA_URL]"
 )
 @click.option(
-    "--xoa-token", "-t",
+    "--xoa-token",
+    "-t",
     envvar="XOA_TOKEN",
-    help="Xen Orchestra API token [env var: XOA_TOKEN]"
+    help="Xen Orchestra API token [env var: XOA_TOKEN]",
 )
 @click.pass_context
 def generate(ctx, config: str, xoa_url: str, xoa_token: str):
     """
     Generate VM templates from configuration file.
-    
+
     Reads template specifications from the YAML configuration file and creates
     VM templates according to these specifications using Xen Orchestra API.
     """
     # Run the async function in the event loop
     return asyncio.run(_generate(config, xoa_url, xoa_token))
+
 
 async def _generate(config: str, xoa_url: str, xoa_token: str):
     """Async implementation of generate command."""
@@ -111,13 +113,15 @@ async def _generate(config: str, xoa_url: str, xoa_token: str):
         # XenOrchestra API setup
         host = xoa_url or os.getenv("XOA_URL")
         auth_token = xoa_token or os.getenv("XOA_TOKEN")
-        
+
         if not host or not auth_token:
-            console.print(Panel(
-                "[bold red]Error:[/bold red] XOA_URL and XOA_TOKEN must be provided either as command-line options or environment variables",
-                title="Missing Credentials", 
-                border_style="red"
-            ))
+            console.print(
+                Panel(
+                    "[bold red]Error:[/bold red] XOA_URL and XOA_TOKEN must be provided either as command-line options or environment variables",
+                    title="Missing Credentials",
+                    border_style="red",
+                )
+            )
             return 1
 
         multi_task_progress = MultiTaskProgress()
@@ -125,7 +129,8 @@ async def _generate(config: str, xoa_url: str, xoa_token: str):
         # Load the configuration file
         templates = parse_yaml_file_as(TemplateList, Path(config))
         templates_managers = [
-            TemplateManager(template, multi_task_progress) for template in templates.templates.values()
+            TemplateManager(template, multi_task_progress)
+            for template in templates.templates.values()
         ]
 
         # Display template information
@@ -143,15 +148,21 @@ async def _generate(config: str, xoa_url: str, xoa_token: str):
             manager.plan(table)
 
         console.print(table)
-        
-        if click.confirm("Do you want to continue with template generation?", default=True):
+
+        if click.confirm(
+            "Do you want to continue with template generation?", default=True
+        ):
             api = XenOrchestraApi(host=host, auth_token=auth_token)
             async with AsyncAPISession(api) as session_api:
-                with Live(multi_task_progress.render(), refresh_per_second=10, console=console) as live:
+                with Live(
+                    multi_task_progress.render(), refresh_per_second=10, console=console
+                ) as live:
                     for manager in templates_managers:
                         await manager.generate(session_api)
 
-                console.print("[bold green]All templates processed successfully![/bold green]")
+                console.print(
+                    "[bold green]All templates processed successfully![/bold green]"
+                )
         else:
             console.print("[yellow]Template generation cancelled.[/yellow]")
 
@@ -159,29 +170,30 @@ async def _generate(config: str, xoa_url: str, xoa_token: str):
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
         console.print_exception()
         return 1
-    
+
     return 0
+
 
 @cli.command()
 @click.option(
-    "--xoa-url", "-u",
-    envvar="XOA_URL",
-    help="Xen Orchestra API URL [env var: XOA_URL]"
+    "--xoa-url", "-u", envvar="XOA_URL", help="Xen Orchestra API URL [env var: XOA_URL]"
 )
 @click.option(
-    "--xoa-token", "-t",
+    "--xoa-token",
+    "-t",
     envvar="XOA_TOKEN",
-    help="Xen Orchestra API token [env var: XOA_TOKEN]"
+    help="Xen Orchestra API token [env var: XOA_TOKEN]",
 )
 @click.pass_context
 def list_templates(ctx, xoa_url: str, xoa_token: str):
     """
     List available templates on XCP-NG server.
-    
+
     Connects to Xen Orchestra and displays a table of all VM templates.
     """
     # Run the async function in the event loop
     return asyncio.run(_list_templates(xoa_url, xoa_token))
+
 
 async def _list_templates(xoa_url: str, xoa_token: str):
     """Async implementation of list_templates command."""
@@ -189,13 +201,15 @@ async def _list_templates(xoa_url: str, xoa_token: str):
         # XenOrchestra API setup
         host = xoa_url or os.getenv("XOA_URL")
         auth_token = xoa_token or os.getenv("XOA_TOKEN")
-        
+
         if not host or not auth_token:
-            console.print(Panel(
-                "[bold red]Error:[/bold red] XOA_URL and XOA_TOKEN must be provided either as command-line options or environment variables",
-                title="Missing Credentials", 
-                border_style="red"
-            ))
+            console.print(
+                Panel(
+                    "[bold red]Error:[/bold red] XOA_URL and XOA_TOKEN must be provided either as command-line options or environment variables",
+                    title="Missing Credentials",
+                    border_style="red",
+                )
+            )
             return 1
 
         api = XenOrchestraApi(host=host, auth_token=auth_token)
@@ -203,36 +217,36 @@ async def _list_templates(xoa_url: str, xoa_token: str):
         async with AsyncAPISession(api) as session_api:
             with console.status("[green]Fetching templates...[/green]"):
                 templates_dict = await session_api.list_templates()
-            
+
             if not templates_dict:
                 console.print("[yellow]No templates found.[/yellow]")
                 return 0
-                
+
             table = Table(title="Available VM Templates")
             table.add_column("Name", style="cyan")
             table.add_column("ID", style="dim")
             table.add_column("CPUs", justify="right")
             table.add_column("Memory (GB)", justify="right")
-            
+
             for template_id, template_info in templates_dict.items():
-                memory_gb = round(template_info.get("memory", {}).get("size", 0) / (1024**3), 1)
+                memory_gb = round(
+                    template_info.get("memory", {}).get("size", 0) / (1024**3), 1
+                )
                 table.add_row(
                     template_info.get("name_label", "Unknown"),
                     template_info.get("uuid", "Unknown"),
                     str(template_info.get("CPUs", {}).get("number", "N/A")),
-                    str(memory_gb)
+                    str(memory_gb),
                 )
-            
+
             console.print(table)
-        
+
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
         console.print_exception()
         return 1
-    
+
     return 0
-
-
 
 
 def main():

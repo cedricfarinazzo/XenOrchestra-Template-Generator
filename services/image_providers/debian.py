@@ -11,6 +11,7 @@ from .base import BaseImageProvider, IMAGE_OUTPUT_DIR
 
 DEBIAN_CLOUD_IMAGE_URL = "https://cdimage.debian.org/images/cloud"
 
+
 class DebianVersion(str, Enum):
     BOOKWORM = "12"
     BULLSEYE = "11"
@@ -19,6 +20,7 @@ class DebianVersion(str, Enum):
     JESSIE = "8"
     WHEEZY = "7"
 
+
 class DebianVersionName(str, Enum):
     BOOKWORM = "bookworm"
     BULLSEYE = "bullseye"
@@ -26,6 +28,7 @@ class DebianVersionName(str, Enum):
     STRETCH = "stretch"
     JESSIE = "jessie"
     WHEEZY = "wheezy"
+
 
 # Version name mapping
 VERSION_TO_NAME = {
@@ -37,21 +40,25 @@ VERSION_TO_NAME = {
     DebianVersion.WHEEZY: DebianVersionName.WHEEZY,
 }
 
+
 class DebianImageConfig(BaseModel):
     version: str
     arch: Literal["amd64", "arm64"] = "amd64"
     variant: str = "genericcloud"
 
-    @field_validator('version')
+    @field_validator("version")
     def validate_version(cls, v):
         if v not in VERSION_TO_NAME:
             valid_versions = ", ".join(VERSION_TO_NAME.keys())
-            raise ValueError(f"Unsupported Debian version: {v}. Valid versions are: {valid_versions}")
+            raise ValueError(
+                f"Unsupported Debian version: {v}. Valid versions are: {valid_versions}"
+            )
         return v
 
-    @field_validator('arch')
+    @field_validator("arch")
     def validate_architecture(cls, v):
         return v.lower()
+
 
 class DebianImageProvider(BaseImageProvider):
     """
@@ -59,18 +66,11 @@ class DebianImageProvider(BaseImageProvider):
     """
 
     def __init__(
-        self,
-        version: str,
-        arch: str = "amd64",
-        variant: str = "genericcloud"
+        self, version: str, arch: str = "amd64", variant: str = "genericcloud"
     ):
         super().__init__(version, arch)
         # Validate the config with Pydantic
-        self.config = DebianImageConfig(
-            version=version,
-            arch=arch,
-            variant=variant
-        )
+        self.config = DebianImageConfig(version=version, arch=arch, variant=variant)
 
     def __get_version_name(self) -> str:
         return VERSION_TO_NAME[self.config.version].value
@@ -87,7 +87,7 @@ class DebianImageProvider(BaseImageProvider):
         self,
         image_output_path: Path,
         use_cache: bool = True,
-        progress_callback: Optional[Callable[[float], None]] = None
+        progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Path:
         """
         Download the image in qcow2 format.
@@ -116,9 +116,9 @@ class DebianImageProvider(BaseImageProvider):
         response = requests.get(image_url, stream=True)
         response.raise_for_status()
 
-        total_size = int(response.headers.get('content-length', 0))
+        total_size = int(response.headers.get("content-length", 0))
         downloaded_size = 0
-        with image_output_path.open('wb+') as file:
+        with image_output_path.open("wb+") as file:
             for data in response.iter_content(chunk_size=8192):
                 file.write(data)
                 downloaded_size += len(data)
@@ -134,7 +134,7 @@ class DebianImageProvider(BaseImageProvider):
         self,
         image_qcow2_path: Path,
         use_cache: bool = True,
-        progress_callback: Optional[Callable[[float], None]] = None
+        progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Path:
         """
         Convert the downloaded image to RAW format.
@@ -153,11 +153,23 @@ class DebianImageProvider(BaseImageProvider):
             return image_raw_path
 
         # Use qemu-img to convert the image
-        subprocess.run(["qemu-img", "convert", "-f", "qcow2", "-O", "raw", str(image_qcow2_path), str(image_raw_path)], check=True)
+        subprocess.run(
+            [
+                "qemu-img",
+                "convert",
+                "-f",
+                "qcow2",
+                "-O",
+                "raw",
+                str(image_qcow2_path),
+                str(image_raw_path),
+            ],
+            check=True,
+        )
         logger.info(f"Converted image to RAW format: {image_raw_path}")
         return image_raw_path
 
-    def download_image(self, use_cache = True, progress_callback = None):
+    def download_image(self, use_cache=True, progress_callback=None):
         """
         Download the image with progress reporting.
         Args:
@@ -173,6 +185,8 @@ class DebianImageProvider(BaseImageProvider):
         self.__download(image_qcow2_path, use_cache, progress_callback)
 
         # Convert to RAW format
-        image_raw_path = self.__convert_image(image_qcow2_path, use_cache, progress_callback)
+        image_raw_path = self.__convert_image(
+            image_qcow2_path, use_cache, progress_callback
+        )
 
         return image_raw_path

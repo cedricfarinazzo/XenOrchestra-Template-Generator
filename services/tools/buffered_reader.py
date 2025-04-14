@@ -1,6 +1,7 @@
 from io import BufferedReader, RawIOBase
 from typing import Callable, Optional
 
+
 class BufferedReaderWithProgressCallback(BufferedReader):
     """
     A BufferedReader that provides a callback for progress updates.
@@ -12,7 +13,7 @@ class BufferedReaderWithProgressCallback(BufferedReader):
         self,
         raw: RawIOBase,
         buffer_size: int = 8192,
-        progress_callback: Optional[Callable[[float], None]] = None
+        progress_callback: Optional[Callable[[float], None]] = None,
     ):
         super().__init__(raw, buffer_size)
         self.progress_callback = progress_callback
@@ -30,7 +31,7 @@ class BufferedReaderWithProgressCallback(BufferedReader):
         self.raw.seek(current_position)
         return size
 
-    def read(self, size: Optional[int] =-1) -> bytes:
+    def read(self, size: Optional[int] = -1) -> bytes:
         data = super().read(size)
         self.bytes_read += len(data)
 
