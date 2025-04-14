@@ -6,6 +6,7 @@ Generate VM templates for XCP-NG using Xen Orchestra API
 import os
 import asyncio
 import sys
+import concurrent.futures
 from pathlib import Path
 
 import rich_click as click
@@ -77,6 +78,31 @@ def cli(ctx, verbose):
     ctx.obj["verbose"] = verbose
 
 
+def generate_thread_process(
+    manager: TemplateManager, xoa_host: str, xoa_auth_token: str
+):
+    """
+    Generate VM templates in a separate thread.
+    This function is intended to be run in a separate thread to avoid blocking
+    the main event loop.
+    It uses the TemplateManager to generate templates using the Xen Orchestra API.
+    :param manager: TemplateManager instance for generating templates
+    :param xoa_host: Xen Orchestra API host
+    :param xoa_auth_token: Xen Orchestra API authentication token
+    :return: None
+    """
+    return asyncio.run(_generate_thread_process(manager, xoa_host, xoa_auth_token))
+
+
+async def _generate_thread_process(
+    manager: TemplateManager, xoa_host: str, xoa_auth_token: str
+):
+    """Async implementation of generate_thread_process."""
+    api = XenOrchestraApi(host=xoa_host, auth_token=xoa_auth_token)
+    async with AsyncAPISession(api) as session_api:
+        await manager.generate(session_api)
+
+
 @cli.command()
 @click.option(
     "--config",
@@ -95,26 +121,27 @@ def cli(ctx, verbose):
     envvar="XOA_TOKEN",
     help="Xen Orchestra API token [env var: XOA_TOKEN]",
 )
+@click.option(
+    "--concurrency",
+    "-j",
+    type=int,
+    default=2,
+    help="Number of concurrent tasks to run [default: 2]",
+)
 @click.pass_context
-def generate(ctx, config: str, xoa_url: str, xoa_token: str):
+def generate(ctx, config: str, xoa_url: str, xoa_token: str, concurrency):
     """
     Generate VM templates from configuration file.
 
     Reads template specifications from the YAML configuration file and creates
     VM templates according to these specifications using Xen Orchestra API.
     """
-    # Run the async function in the event loop
-    return asyncio.run(_generate(config, xoa_url, xoa_token))
-
-
-async def _generate(config: str, xoa_url: str, xoa_token: str):
-    """Async implementation of generate command."""
     try:
         # XenOrchestra API setup
-        host = xoa_url or os.getenv("XOA_URL")
-        auth_token = xoa_token or os.getenv("XOA_TOKEN")
+        xoa_host = xoa_url or os.getenv("XOA_URL")
+        xoa_auth_token = xoa_token or os.getenv("XOA_TOKEN")
 
-        if not host or not auth_token:
+        if not xoa_host or not xoa_auth_token:
             console.print(
                 Panel(
                     "[bold red]Error:[/bold red] XOA_URL and XOA_TOKEN must be provided either as command-line options or environment variables",
@@ -152,13 +179,34 @@ async def _generate(config: str, xoa_url: str, xoa_token: str):
         if click.confirm(
             "Do you want to continue with template generation?", default=True
         ):
-            api = XenOrchestraApi(host=host, auth_token=auth_token)
-            async with AsyncAPISession(api) as session_api:
-                with Live(
-                    multi_task_progress.render(), refresh_per_second=10, console=console
-                ) as live:
-                    for manager in templates_managers:
-                        await manager.generate(session_api)
+            with Live(
+                multi_task_progress.render(), refresh_per_second=10, console=console
+            ) as live:
+
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=concurrency
+                ) as executor:
+                    futures = [
+                        executor.submit(
+                            generate_thread_process,
+                            manager,
+                            xoa_host,
+                            xoa_auth_token,
+                        )
+                        for manager in templates_managers
+                    ]
+
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            future.result()
+                        except Exception as e:
+                            console.print(
+                                f"[bold red]Error in template generation:[/bold red] {str(e)}"
+                            )
+                        else:
+                            console.print(
+                                "[bold green]Template generated successfully![/bold green]"
+                            )
 
                 console.print(
                     "[bold green]All templates processed successfully![/bold green]"
@@ -199,10 +247,10 @@ async def _list_templates(xoa_url: str, xoa_token: str):
     """Async implementation of list_templates command."""
     try:
         # XenOrchestra API setup
-        host = xoa_url or os.getenv("XOA_URL")
-        auth_token = xoa_token or os.getenv("XOA_TOKEN")
+        xoa_host = xoa_url or os.getenv("XOA_URL")
+        xoa_auth_token = xoa_token or os.getenv("XOA_TOKEN")
 
-        if not host or not auth_token:
+        if not xoa_host or not xoa_auth_token:
             console.print(
                 Panel(
                     "[bold red]Error:[/bold red] XOA_URL and XOA_TOKEN must be provided either as command-line options or environment variables",
@@ -212,7 +260,7 @@ async def _list_templates(xoa_url: str, xoa_token: str):
             )
             return 1
 
-        api = XenOrchestraApi(host=host, auth_token=auth_token)
+        api = XenOrchestraApi(host=xoa_host, auth_token=xoa_auth_token)
 
         async with AsyncAPISession(api) as session_api:
             with console.status("[green]Fetching templates...[/green]"):

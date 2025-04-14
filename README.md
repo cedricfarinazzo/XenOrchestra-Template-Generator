@@ -134,7 +134,7 @@ export XOA_TOKEN="your-api-token"
 
 2. Command-line options:
 ```bash
-./main.py generate --xoa-url "https://your-xoa-instance.example.com" --xoa-token "your-api-token"
+python3 main.py generate --xoa-url "https://your-xoa-instance.example.com" --xoa-token "your-api-token"
 ```
 
 ### Commands
@@ -143,13 +143,13 @@ export XOA_TOKEN="your-api-token"
 
 ```bash
 # Using default config.yml file
-./main.py generate
+python3 main.py generate
 
 # Using a custom configuration file
-./main.py generate --config my-templates.yml 
+python3 main.py generate --config my-templates.yml 
 
-# Enable debug logging
-./main.py generate --debug
+# Using concurrency
+python3 main.py generate --concurrency 4
 ```
 
 #### Listing Existing Templates
@@ -179,13 +179,13 @@ The tool supports multiple verbosity levels to help with troubleshooting:
 
 ```bash
 # Default level (WARNING)
-./main.py generate
+python3 main.py generate
 
 # Increased verbosity (INFO level)
-./main.py -v generate
+python3 main.py -v generate
 
 # Debug level (maximum verbosity)
-./main.py -vv generate
+python3 main.py -vv generate
 ```
 
 You can use these verbosity flags with any command:
